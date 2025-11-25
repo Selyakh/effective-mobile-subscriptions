@@ -59,7 +59,7 @@ gofmt -w cmd/main.go internal/handler/subscription.go internal/service/subscript
 golangci-lint run ./...
 ```
 
-## API (кратко)
+## API 
 - `POST /subscriptions` — создать подписку
 - `GET /subscriptions` — список
 - `GET /subscriptions/{id}` — получить по ID
@@ -69,5 +69,6 @@ golangci-lint run ./...
 
 ## Graceful shutdown
 `cmd/main.go` использует `http.Server` с таймаутами и корректным завершением по сигналам `SIGINT/SIGTERM`, поэтому при остановке (`Ctrl+C` или `docker compose down`) текущие запросы завершаются в течение 10 секунд.
+
 
 
