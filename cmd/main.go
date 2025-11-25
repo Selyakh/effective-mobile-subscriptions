@@ -1,15 +1,21 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	_ "effective-mobile-subscriptions/docs"
 	"effective-mobile-subscriptions/internal/config"
 	"effective-mobile-subscriptions/internal/handler"
 	"effective-mobile-subscriptions/internal/repository"
 	"effective-mobile-subscriptions/internal/service"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
@@ -72,7 +78,31 @@ func main() {
 	addr := ":" + cfg.Server.Port
 	log.Printf("The service is running at the address %s", addr)
 
-	if err := http.ListenAndServe(addr, r); err != nil {
-		log.Fatalf("Server startup error: %v", err)
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           r,
+		ReadTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("Server startup error: %v", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutdown signal received, attempting graceful shutdown...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+	log.Println("Server stopped gracefully")
 }

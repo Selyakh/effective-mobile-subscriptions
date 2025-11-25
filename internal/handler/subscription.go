@@ -2,9 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
-
 	"strings"
 
 	"effective-mobile-subscriptions/internal/model"
@@ -21,7 +21,7 @@ func NewSubscriptionHandler(s *service.SubscriptionService) *SubscriptionHandler
 
 // структуры для корректного отображения ошибок в Swagger
 type BadRequestResponse struct {
-	Error string `json:"error" example:"некорректный формат user_id (ожидается UUID)"`
+	Error string `json:"error" example:"incorrect format user_id (expected UUID)"`
 }
 type SubscriptionNotFoundResponse struct {
 	Error string `json:"error" example:"Subscription not found"`
@@ -62,7 +62,7 @@ func (h *SubscriptionHandler) CreateSubscription(w http.ResponseWriter, r *http.
 	sub, err := h.Service.Create(r.Context(), req)
 	if err != nil {
 		log.Printf("ERROR: Service failed to create subscription: %v", err)
-		RespondJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		RespondServiceError(w, err)
 		return
 	}
 	RespondJSON(w, http.StatusCreated, sub)
@@ -81,11 +81,7 @@ func (h *SubscriptionHandler) GetSubscriptionByID(w http.ResponseWriter, r *http
 	id := vars["id"]
 	sub, err := h.Service.GetByID(r.Context(), id)
 	if err != nil {
-		RespondJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
-	}
-	if sub == nil {
-		RespondJSON(w, http.StatusNotFound, map[string]string{"error": "Subscription not found"})
+		RespondServiceError(w, err)
 		return
 	}
 	RespondJSON(w, http.StatusOK, sub)
@@ -109,21 +105,13 @@ func (h *SubscriptionHandler) UpdateSubscription(w http.ResponseWriter, r *http.
 	var req model.UpdateSubscriptionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Printf("ERROR: Failed to decode request body for update: %v", err)
-		RespondJSON(w, http.StatusBadRequest, BadRequestResponse{Error: "Некорректный формат JSON"}) 
+		RespondJSON(w, http.StatusBadRequest, BadRequestResponse{Error: "Incorrect format JSON"})
 		return
 	}
 	updatedSub, err := h.Service.Update(r.Context(), id, req)
 	if err != nil {
-		if strings.Contains(err.Error(), "incorrect format") {
-			RespondJSON(w, http.StatusBadRequest, BadRequestResponse{Error: err.Error()})
-			return
-		}
-		if strings.Contains(err.Error(), "not found") {
-			RespondJSON(w, http.StatusNotFound, SubscriptionNotFoundResponse{Error: "Подписка не найдена"})
-			return
-		}
 		log.Printf("ERROR: Failed to update subscription %s in service: %v", id, err)
-		RespondJSON(w, http.StatusInternalServerError, InternalServerErrorResponse{Error: "Ошибка при обновлении подписки"})
+		RespondServiceError(w, err)
 		return
 	}
 	RespondJSON(w, http.StatusOK, updatedSub)
@@ -141,7 +129,7 @@ func (h *SubscriptionHandler) DeleteSubscription(w http.ResponseWriter, r *http.
 	id := vars["id"]
 	deleted, err := h.Service.Delete(r.Context(), id)
 	if err != nil {
-		RespondJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		RespondServiceError(w, err)
 		return
 	}
 	if !deleted {
@@ -157,15 +145,16 @@ func (h *SubscriptionHandler) DeleteSubscription(w http.ResponseWriter, r *http.
 // @Success 200 {array} model.Subscription
 // @Failure 500 {object} InternalServerErrorResponse "Ошибка БД/сервиса"
 // @Router /subscriptions [get]
-func (h *SubscriptionHandler) ListSubscriptions(w http.ResponseWriter, r *http.Request) {	
+func (h *SubscriptionHandler) ListSubscriptions(w http.ResponseWriter, r *http.Request) {
 	subscriptions, err := h.Service.List(r.Context())
 	if err != nil {
 		log.Printf("FATAL ERROR: Service failed to fetch list of subscriptions: %v", err)
-		RespondJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to fetch subscriptions"})
+		RespondJSON(w, http.StatusInternalServerError, InternalServerErrorResponse{Error: "Internal Server Error"})
 		return
 	}
 	RespondJSON(w, http.StatusOK, subscriptions)
 }
+
 type CostAnalyticsResponse struct {
 	TotalCost int `json:"total_cost"`
 }
@@ -191,8 +180,29 @@ func (h *SubscriptionHandler) GetCostAnalytics(w http.ResponseWriter, r *http.Re
 	totalCost, err := h.Service.GetCostAnalytics(r.Context(), req)
 	if err != nil {
 		log.Printf("WARN: Analytics request validation error: %v", err)
-		RespondJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		RespondServiceError(w, err)
 		return
 	}
 	RespondJSON(w, http.StatusOK, CostAnalyticsResponse{TotalCost: totalCost})
+}
+
+func RespondServiceError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, service.ErrValidation):
+		RespondJSON(w, http.StatusBadRequest, BadRequestResponse{Error: UserFacingErrorMessage(err)})
+	case errors.Is(err, service.ErrNotFound):
+		RespondJSON(w, http.StatusNotFound, SubscriptionNotFoundResponse{Error: "Subscription not found"})
+	default:
+		RespondJSON(w, http.StatusInternalServerError, InternalServerErrorResponse{Error: "Internal Server Error"})
+	}
+}
+
+func UserFacingErrorMessage(err error) string {
+	const delimiter = ": "
+	msg := err.Error()
+	prefix := service.ErrValidation.Error() + delimiter
+	if strings.HasPrefix(msg, prefix) {
+		return msg[len(prefix):]
+	}
+	return msg
 }
