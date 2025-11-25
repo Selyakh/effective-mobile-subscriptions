@@ -1,0 +1,9 @@
+server:
+  port: "8080"
+database:
+  host: "db"
+  port: "5432"
+  user: "user"
+  password: "password"
+  dbname: "subscription_service"
+  sslmode: "disable"

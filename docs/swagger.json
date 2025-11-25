@@ -1,0 +1,363 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "REST service for aggregating user subscriptions.",
+        "title": "Subscription Aggregation API",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "email": "support@example.com"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {
+        "/subscriptions": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "subscriptions"
+                ],
+                "summary": "Получить список всех подписок",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Subscription"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка БД/сервиса",
+                        "schema": {
+                            "$ref": "#/definitions/handler.InternalServerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Создает новую запись об онлайн-подписке",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "subscriptions"
+                ],
+                "summary": "Создать новую подписку",
+                "parameters": [
+                    {
+                        "description": "Данные новой подписки",
+                        "name": "subscription",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.CreateSubscriptionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.Subscription"
+                        }
+                    },
+                    "400": {
+                        "description": "Некорректный запрос или ошибка валидации (UUID, дата, формат JSON)",
+                        "schema": {
+                            "$ref": "#/definitions/handler.BadRequestResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/subscriptions/analytics": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "subscriptions"
+                ],
+                "summary": "Подсчет суммарной стоимости подписок по фильтрам",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Фильтр по UUID пользователя",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Фильтр по названию подписки",
+                        "name": "service_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Период от (MM-YYYY)",
+                        "name": "start_date_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Период до (MM-YYYY)",
+                        "name": "start_date_to",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.CostAnalyticsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Ошибка валидации параметров запроса (UUID, дата)",
+                        "schema": {
+                            "$ref": "#/definitions/handler.BadRequestResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/subscriptions/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "subscriptions"
+                ],
+                "summary": "Получить подписку по ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UUID подписки",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Subscription"
+                        }
+                    },
+                    "400": {
+                        "description": "Некорректный формат ID",
+                        "schema": {
+                            "$ref": "#/definitions/handler.BadRequestResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Подписка не найдена",
+                        "schema": {
+                            "$ref": "#/definitions/handler.SubscriptionNotFoundResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "subscriptions"
+                ],
+                "summary": "Обновить существующую подписку",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UUID подписки",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Обновленные данные подписки",
+                        "name": "subscription",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.UpdateSubscriptionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Subscription"
+                        }
+                    },
+                    "400": {
+                        "description": "Некорректный запрос или ошибка валидации",
+                        "schema": {
+                            "$ref": "#/definitions/handler.BadRequestResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Подписка не найдена",
+                        "schema": {
+                            "$ref": "#/definitions/handler.SubscriptionNotFoundResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "subscriptions"
+                ],
+                "summary": "Удалить подписку по ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UUID подписки",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Подписка успешно удалена (No Content)"
+                    },
+                    "400": {
+                        "description": "Некорректный формат ID",
+                        "schema": {
+                            "$ref": "#/definitions/handler.BadRequestResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Подписка не найдена",
+                        "schema": {
+                            "$ref": "#/definitions/handler.SubscriptionNotFoundResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "handler.BadRequestResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "некорректный формат user_id (ожидается UUID)"
+                }
+            }
+        },
+        "handler.CostAnalyticsResponse": {
+            "type": "object",
+            "properties": {
+                "total_cost": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handler.InternalServerErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "Internal Server Error"
+                }
+            }
+        },
+        "handler.SubscriptionNotFoundResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "Subscription not found"
+                }
+            }
+        },
+        "model.CreateSubscriptionRequest": {
+            "type": "object",
+            "properties": {
+                "price": {
+                    "type": "integer"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "description": "Входящая дата в формате \"MM-YYYY\"",
+                    "type": "string"
+                },
+                "user_id": {
+                    "description": "Входящий ID в виде строки UUID",
+                    "type": "string"
+                }
+            }
+        },
+        "model.Subscription": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "end_date": {
+                    "description": "Используем *time.Time, чтобы разрешить NULL (опционально)",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "price": {
+                    "description": "Целое число рублей",
+                    "type": "integer"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.UpdateSubscriptionRequest": {
+            "type": "object",
+            "properties": {
+                "end_date": {
+                    "description": "\"MM-YYYY\" (Опционально)",
+                    "type": "string"
+                },
+                "price": {
+                    "type": "integer"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "description": "\"MM-YYYY\"",
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

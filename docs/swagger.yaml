@@ -1,0 +1,241 @@
+basePath: /
+definitions:
+  handler.BadRequestResponse:
+    properties:
+      error:
+        example: некорректный формат user_id (ожидается UUID)
+        type: string
+    type: object
+  handler.CostAnalyticsResponse:
+    properties:
+      total_cost:
+        type: integer
+    type: object
+  handler.InternalServerErrorResponse:
+    properties:
+      error:
+        example: Internal Server Error
+        type: string
+    type: object
+  handler.SubscriptionNotFoundResponse:
+    properties:
+      error:
+        example: Subscription not found
+        type: string
+    type: object
+  model.CreateSubscriptionRequest:
+    properties:
+      price:
+        type: integer
+      service_name:
+        type: string
+      start_date:
+        description: Входящая дата в формате "MM-YYYY"
+        type: string
+      user_id:
+        description: Входящий ID в виде строки UUID
+        type: string
+    type: object
+  model.Subscription:
+    properties:
+      created_at:
+        type: string
+      end_date:
+        description: Используем *time.Time, чтобы разрешить NULL (опционально)
+        type: string
+      id:
+        type: string
+      price:
+        description: Целое число рублей
+        type: integer
+      service_name:
+        type: string
+      start_date:
+        type: string
+      user_id:
+        type: string
+    type: object
+  model.UpdateSubscriptionRequest:
+    properties:
+      end_date:
+        description: '"MM-YYYY" (Опционально)'
+        type: string
+      price:
+        type: integer
+      service_name:
+        type: string
+      start_date:
+        description: '"MM-YYYY"'
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+  description: REST service for aggregating user subscriptions.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Subscription Aggregation API
+  version: "1.0"
+paths:
+  /subscriptions:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Subscription'
+            type: array
+        "500":
+          description: Ошибка БД/сервиса
+          schema:
+            $ref: '#/definitions/handler.InternalServerErrorResponse'
+      summary: Получить список всех подписок
+      tags:
+      - subscriptions
+    post:
+      consumes:
+      - application/json
+      description: Создает новую запись об онлайн-подписке
+      parameters:
+      - description: Данные новой подписки
+        in: body
+        name: subscription
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateSubscriptionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.Subscription'
+        "400":
+          description: Некорректный запрос или ошибка валидации (UUID, дата, формат
+            JSON)
+          schema:
+            $ref: '#/definitions/handler.BadRequestResponse'
+      summary: Создать новую подписку
+      tags:
+      - subscriptions
+  /subscriptions/{id}:
+    delete:
+      parameters:
+      - description: UUID подписки
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Подписка успешно удалена (No Content)
+        "400":
+          description: Некорректный формат ID
+          schema:
+            $ref: '#/definitions/handler.BadRequestResponse'
+        "404":
+          description: Подписка не найдена
+          schema:
+            $ref: '#/definitions/handler.SubscriptionNotFoundResponse'
+      summary: Удалить подписку по ID
+      tags:
+      - subscriptions
+    get:
+      parameters:
+      - description: UUID подписки
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Subscription'
+        "400":
+          description: Некорректный формат ID
+          schema:
+            $ref: '#/definitions/handler.BadRequestResponse'
+        "404":
+          description: Подписка не найдена
+          schema:
+            $ref: '#/definitions/handler.SubscriptionNotFoundResponse'
+      summary: Получить подписку по ID
+      tags:
+      - subscriptions
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: UUID подписки
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Обновленные данные подписки
+        in: body
+        name: subscription
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateSubscriptionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Subscription'
+        "400":
+          description: Некорректный запрос или ошибка валидации
+          schema:
+            $ref: '#/definitions/handler.BadRequestResponse'
+        "404":
+          description: Подписка не найдена
+          schema:
+            $ref: '#/definitions/handler.SubscriptionNotFoundResponse'
+      summary: Обновить существующую подписку
+      tags:
+      - subscriptions
+  /subscriptions/analytics:
+    get:
+      parameters:
+      - description: Фильтр по UUID пользователя
+        in: query
+        name: user_id
+        type: string
+      - description: Фильтр по названию подписки
+        in: query
+        name: service_name
+        type: string
+      - description: Период от (MM-YYYY)
+        in: query
+        name: start_date_from
+        type: string
+      - description: Период до (MM-YYYY)
+        in: query
+        name: start_date_to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.CostAnalyticsResponse'
+        "400":
+          description: Ошибка валидации параметров запроса (UUID, дата)
+          schema:
+            $ref: '#/definitions/handler.BadRequestResponse'
+      summary: Подсчет суммарной стоимости подписок по фильтрам
+      tags:
+      - subscriptions
+swagger: "2.0"
